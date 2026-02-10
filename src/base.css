@@ -1,0 +1,48 @@
+/* Preflight (subset of Tailwind's reset relevant to this document) */
+*,
+::after,
+::before {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0 solid;
+}
+
+html {
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  tab-size: 4;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+b,
+strong {
+  font-weight: bolder;
+}
+
+ol,
+ul {
+  list-style: none;
+}
+
+/* Base */
+body {
+  font-family: var(--font-primary);
+  color: var(--color-body);
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}

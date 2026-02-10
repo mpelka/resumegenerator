@@ -1,0 +1,168 @@
+/* Page container */
+.resume-page {
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 56px 96px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Header */
+header {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.initials {
+  position: absolute;
+  left: -18mm;
+  top: 0;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: 1.5px solid var(--color-accent);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  line-height: 1.2;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+/* Title (first p after h1) — markdown wraps in <strong>, unbold it */
+header p:nth-of-type(1) {
+  font-size: 13px;
+  color: var(--color-body);
+  margin-bottom: 6px;
+}
+
+header p:nth-of-type(1) strong {
+  font-weight: normal;
+}
+
+/* Contact (second p) */
+header p:nth-of-type(2) {
+  font-size: 10.5px;
+  color: var(--color-subtitle);
+  margin-bottom: 14px;
+}
+
+/* Summary (third p) */
+header p:nth-of-type(3) {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--color-body);
+}
+
+/* Section dividers — label only, no line */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  margin-bottom: 20px;
+}
+
+.section-divider span {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-section-label);
+  white-space: nowrap;
+}
+
+.divider-line {
+  display: none;
+}
+
+/* Entry headings (h3 = company) */
+h3 {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 26px;
+  break-after: avoid;
+}
+
+/* First h3 after section divider needs no top margin */
+.section-divider + h3 {
+  margin-top: 0;
+}
+
+/* Role & dates (p right after h3) — markdown wraps role in <strong>, unbold it */
+h3 + p {
+  font-size: 11.5px;
+  color: var(--color-subtitle);
+  margin-top: 2px;
+  break-after: avoid;
+}
+
+h3 + p strong {
+  font-weight: normal;
+}
+
+/* Bullet lists */
+ul {
+  list-style: disc outside;
+  margin-left: 18px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+li {
+  margin-bottom: 3px;
+}
+
+/* Technologies line (italic paragraphs) */
+ul + p,
+li em {
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--color-subtitle);
+}
+
+ul + p {
+  margin-top: 6px;
+}
+
+/* Skills section — no bullets, tighter layout */
+.section-divider:last-of-type + ul {
+  list-style: none;
+  margin-left: 0;
+}
+
+/* Print styles */
+@media print {
+  @page {
+    size: A4;
+    margin-top: 20mm;
+    margin-bottom: 20mm;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .resume-page {
+    max-width: none;
+    padding: 0 25mm;
+  }
+}
