@@ -1,18 +1,17 @@
-/**
- * Takes raw resume markdown and returns an HTML string.
- * Uses Bun.markdown.html() for parsing, then post-processes
- * headings (header with initials, section dividers).
- * Everything else uses standard GFM HTML output, styled via CSS.
- *
- * @param {string} markdown
- * @param {{ initials?: string, features?: { monogram?: boolean, sectionDividers?: boolean } }} options
- */
-export function renderResume(markdown, { initials, features = {} } = {}) {
+interface RenderOptions {
+  initials?: string;
+  features?: {
+    monogram?: boolean;
+    sectionDividers?: boolean;
+  };
+}
+
+export function renderResume(markdown: string, { initials, features = {} }: RenderOptions = {}): string {
   let html = Bun.markdown.html(markdown);
 
   // Transform h1 into header, optionally with monogram
   let inHeader = true;
-  html = html.replace(/<h1>(.*?)<\/h1>/s, (_, content) => {
+  html = html.replace(/<h1>(.*?)<\/h1>/s, (_, content: string) => {
     const monogram =
       features.monogram !== false && initials
         ? `<div class="initials"><span>${initials[0]}</span><span>${initials[1]}</span></div>`
@@ -21,7 +20,7 @@ export function renderResume(markdown, { initials, features = {} } = {}) {
   });
 
   // Transform h2 — section dividers or plain headings depending on features
-  html = html.replace(/<h2>(.*?)<\/h2>/g, (_, content) => {
+  html = html.replace(/<h2>(.*?)<\/h2>/g, (_, content: string) => {
     const closeHeader = inHeader ? "</header>" : "";
     inHeader = false;
     if (features.sectionDividers === false) {

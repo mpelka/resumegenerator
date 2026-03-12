@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { buildHtml, buildPdfName, deriveInitials, GOOGLE_FONTS_URL, parseFontFaces, parseFrontmatter } from "./utils.js";
+import {
+  buildHtml,
+  buildPdfName,
+  deriveInitials,
+  GOOGLE_FONTS_URL,
+  parseFontFaces,
+  parseFrontmatter,
+} from "./utils.ts";
 
 describe("deriveInitials", () => {
   test("derives initials from two-word name", () => {
@@ -110,7 +117,6 @@ describe("buildHtml", () => {
     expect(html).not.toContain("null");
   });
 });
-
 
 describe("GOOGLE_FONTS_URL", () => {
   test("has entries for known fonts", () => {

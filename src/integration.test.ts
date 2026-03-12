@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { renderResume } from "./render.js";
-import { buildHtml } from "./utils.js";
+import { renderResume } from "./render.ts";
+import { buildHtml, parseFrontmatter } from "./utils.ts";
 
 const FIXTURE = `# Jane Doe
 
@@ -59,7 +59,6 @@ Warsaw, Poland • jane@example.com
 
 describe("frontmatter stripping", () => {
   test("frontmatter is stripped and not present in rendered HTML", () => {
-    const { parseFrontmatter } = require("./utils.js");
     const { markdown } = parseFrontmatter(FIXTURE_WITH_FRONTMATTER);
     const bodyHtml = renderResume(markdown);
     expect(bodyHtml).toContain("Jane Doe");

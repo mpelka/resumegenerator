@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { renderResume } from "./render.js";
+import { renderResume } from "./render.ts";
 
 describe("renderResume", () => {
   test("h1 produces header with name", () => {

@@ -4,8 +4,15 @@ import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { program } from "commander";
 import { chromium } from "playwright";
-import { renderResume } from "./render.js";
-import { buildHtml, buildPdfName, deriveInitials, GOOGLE_FONTS_URL, parseFontFaces, parseFrontmatter } from "./utils.js";
+import { renderResume } from "./render.ts";
+import {
+  buildHtml,
+  buildPdfName,
+  deriveInitials,
+  GOOGLE_FONTS_URL,
+  parseFontFaces,
+  parseFrontmatter,
+} from "./utils.ts";
 
 if (typeof Bun === "undefined") {
   console.error("This tool requires Bun. Install it at https://bun.sh");
@@ -15,7 +22,7 @@ if (typeof Bun === "undefined") {
 const ROOT = resolve(import.meta.dirname, "..");
 const FONTS_DIR = resolve(ROOT, ".fonts");
 
-async function ensureFont(fontFamily) {
+async function ensureFont(fontFamily: string): Promise<string | null> {
   const url = GOOGLE_FONTS_URL[fontFamily];
   if (!url) return null;
 
@@ -36,7 +43,7 @@ async function ensureFont(fontFamily) {
   const cssText = await res.text();
   const faces = parseFontFaces(cssText, fontFamily);
 
-  const cssRules = [];
+  const cssRules: string[] = [];
   for (const face of faces) {
     const filePath = resolve(FONTS_DIR, face.filename);
 
@@ -58,8 +65,8 @@ async function ensureFont(fontFamily) {
   return result;
 }
 
-async function ensureFonts(families) {
-  const results = [];
+async function ensureFonts(families: string[]): Promise<string | null> {
+  const results: string[] = [];
   for (const family of families) {
     const css = await ensureFont(family);
     if (css) results.push(css);
@@ -100,7 +107,7 @@ const baseCSS = readFileSync(resolve(ROOT, "src", "base.css"), "utf-8");
 const mdPath = resolve(process.cwd(), filename);
 const outputDir = dirname(mdPath);
 
-let raw;
+let raw: string;
 try {
   raw = readFileSync(mdPath, "utf-8");
 } catch {
@@ -123,7 +130,7 @@ const initials = opts.initials || deriveInitials(nameMatch[1]);
 const bodyHtml = renderResume(markdown, { initials, features: templateConfig.features });
 
 // Download/cache fonts
-const fontFamilies = Object.values(templateConfig.fonts);
+const fontFamilies = Object.values(templateConfig.fonts) as string[];
 const fontFaceCSS = await ensureFonts(fontFamilies);
 
 // Build spacing overrides if provided (multiplier, e.g. 0.8 = 80% of default gaps)
@@ -148,7 +155,7 @@ varsCSS += ` --font-primary: '${templateConfig.fonts.primary}', sans-serif;`;
 if (templateConfig.fonts.secondary) {
   varsCSS += ` --font-secondary: '${templateConfig.fonts.secondary}', serif;`;
 }
-for (const [key, value] of Object.entries(templateConfig.colors)) {
+for (const [key, value] of Object.entries(templateConfig.colors) as [string, string][]) {
   const prop = key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
   varsCSS += ` --color-${prop}: ${value};`;
 }
@@ -165,7 +172,7 @@ const primaryFont = templateConfig.fonts.primary;
 console.log(
   `Generating PDF (template: ${templateName}, font: ${primaryFont}, source: ${fontFaceCSS ? "Google Fonts (cached)" : "system fallback"})...`,
 );
-let browser;
+let browser: Awaited<ReturnType<typeof chromium.launch>>;
 try {
   browser = await chromium.launch();
 } catch {

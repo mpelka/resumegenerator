@@ -98,7 +98,7 @@ export default {
 
 **`style.css`** — template-specific styles, including page margins via `@page`. Uses CSS variables (`--font-primary`, `--font-secondary`, `--color-*`) injected from the config at build time.
 
-Font families must be present in the `GOOGLE_FONTS_URL` map in `src/utils.js`.
+Font families must be present in the `GOOGLE_FONTS_URL` map in `src/utils.ts`.
 
 ## How it works
 

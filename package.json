@@ -1,21 +1,21 @@
 {
   "name": "@mpelka/resumegenerator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Markdown-to-PDF resume generator with templates and ATS optimization",
   "type": "module",
   "license": "MIT",
   "bin": {
-    "resumegenerator": "src/cli.js"
+    "resumegenerator": "src/cli.ts"
   },
   "files": [
-    "src/cli.js",
-    "src/render.js",
-    "src/utils.js",
+    "src/cli.ts",
+    "src/render.ts",
+    "src/utils.ts",
     "src/base.css",
     "templates/"
   ],
   "scripts": {
-    "generate": "bun src/cli.js",
+    "generate": "bun src/cli.ts",
     "test": "bun test",
     "check": "bunx @biomejs/biome check --write .",
     "lint": "bunx @biomejs/biome lint .",
@@ -40,6 +40,7 @@
     "playwright": "^1.58.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.6"
+    "@biomejs/biome": "^2.4.6",
+    "bun-types": "^1.3.10"
   }
 }
