@@ -48,6 +48,13 @@ Summary paragraph with optional **bold** keywords.
 
 *Technologies used: Tech1, Tech2, Tech3.*
 
+---
+
+### Previous Company
+**Earlier Role** | Start Date - End Date
+
+* Another achievement
+
 ## Education
 
 ### University Name
@@ -59,6 +66,8 @@ Summary paragraph with optional **bold** keywords.
 ```
 
 YAML frontmatter is supported and stripped before rendering.
+
+Use `---` (horizontal rule) between work experience entries to group each role into a block. This enables `break-inside: avoid` in the PDF — Chromium will keep each entry on the same page when possible, preventing orphaned company headings at page breaks.
 
 ## Templates
 

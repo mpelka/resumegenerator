@@ -20,6 +20,8 @@ Experienced engineer specializing in **frontend architecture** and type-safe dev
 
 *Technologies used: React, TypeScript, Next.js.*
 
+---
+
 ### Startup Inc
 **Frontend Developer** | Mar 2016 - Dec 2019
 
@@ -104,6 +106,15 @@ describe("render → HTML pipeline", () => {
 
   test("renders italic tech stack lines", () => {
     expect(bodyHtml).toContain("<em>Technologies used: React, TypeScript, Next.js.</em>");
+  });
+
+  test("hr separators produce entry sections", () => {
+    const entries = bodyHtml.match(/<section class="entry">/g) || [];
+    expect(entries).toHaveLength(2); // Acme Corp + Startup Inc
+  });
+
+  test("hr tags are not present in output", () => {
+    expect(bodyHtml).not.toContain("<hr");
   });
 
   test("renders monogram when initials are provided", () => {

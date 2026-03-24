@@ -81,4 +81,30 @@ describe("renderResume", () => {
     const closingCount = (html.match(/<\/header>/g) || []).length;
     expect(closingCount).toBe(1);
   });
+
+  test("hr separators wrap entries in section.entry elements", () => {
+    const md = "# Name\n\n## Work\n\n### Company A\nRole A\n\n---\n\n### Company B\nRole B";
+    const html = renderResume(md);
+    const entries = html.match(/<section class="entry">/g) || [];
+    expect(entries).toHaveLength(2);
+  });
+
+  test("hr separators are removed from output", () => {
+    const md = "# Name\n\n## Work\n\n### Company A\n\n---\n\n### Company B";
+    const html = renderResume(md);
+    expect(html).not.toContain("<hr");
+  });
+
+  test("entries without hr still render (no wrapping)", () => {
+    const md = "# Name\n\n## Work\n\n### Company A\nRole A";
+    const html = renderResume(md);
+    expect(html).toContain("<h3>Company A</h3>");
+  });
+
+  test("chunks without h3 are not wrapped in section.entry", () => {
+    const md = "# Name\n\n## Work\n\n### Company A\n\n---\n\n## Education\n\n### University";
+    const html = renderResume(md);
+    // Education section's h3 should be in its own entry
+    expect(html).toContain("<h3>University</h3>");
+  });
 });

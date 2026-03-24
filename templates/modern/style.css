@@ -95,9 +95,11 @@ h3 {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 32px;
+  break-after: avoid;
 }
 
-/* First h3 after section divider needs no top margin */
+/* First entry after section divider needs no top margin on h3 */
+.section-divider + section.entry > h3:first-child,
 .section-divider + h3 {
   margin-top: 0;
 }
@@ -107,6 +109,7 @@ h3 + p {
   font-size: 12px;
   color: var(--color-subtitle);
   margin-top: 2px;
+  break-after: avoid;
 }
 
 h3 + p strong {
@@ -144,8 +147,8 @@ ul + p {
   margin-left: 0;
 }
 
-/* Entry grouping */
-h3 ~ ul {
+/* Entry grouping — keep each experience block together when possible */
+section.entry {
   break-inside: avoid;
 }
 

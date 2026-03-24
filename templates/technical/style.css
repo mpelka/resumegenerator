@@ -98,9 +98,15 @@ h3 {
   break-after: avoid;
 }
 
-/* First h3 after section divider needs no top margin */
+/* First entry after section divider needs no top margin on h3 */
+.section-divider + section.entry > h3:first-child,
 .section-divider + h3 {
   margin-top: 0;
+}
+
+/* Entry grouping — keep each experience block together when possible */
+section.entry {
+  break-inside: avoid;
 }
 
 /* Role & dates (p right after h3) — markdown wraps role in <strong>, unbold it */

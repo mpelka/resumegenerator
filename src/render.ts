@@ -26,12 +26,17 @@ export function renderResume(markdown: string, { initials, features = {} }: Rend
     if (features.sectionDividers === false) {
       return `${closeHeader}<h2>${content}</h2>`;
     }
-    return `${closeHeader}
-          <div class="section-divider">
-            <span>${content}</span>
-            <div class="divider-line"></div>
-          </div>`;
+    return `${closeHeader}<div class="section-divider"><span>${content}</span><div class="divider-line"></div></div>`;
   });
+
+  // Wrap entry groups using <hr> (markdown "---") as boundaries.
+  // Split on <hr>, wrap each chunk that contains an <h3> in <section class="entry">.
+  html = html
+    .split(/<hr\s*\/?>/g)
+    .map((chunk) =>
+      chunk.includes("<h3>") ? `<section class="entry">${chunk}</section>` : chunk,
+    )
+    .join("");
 
   const closingTag = inHeader ? "</header>" : "";
   return `<div class="resume-page">${html}${closingTag}</div>`;
