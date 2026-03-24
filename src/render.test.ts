@@ -82,6 +82,29 @@ describe("renderResume", () => {
     expect(closingCount).toBe(1);
   });
 
+  test("strips content before h1 (JD section)", () => {
+    const md = "## Job Description\nSome requirements.\n\n---\n\n# Jane Doe\n\n## Work\n\n### Company";
+    const html = renderResume(md);
+    expect(html).not.toContain("Job Description");
+    expect(html).not.toContain("Some requirements");
+    expect(html).toContain("Jane Doe");
+    expect(html).toContain("<h3>Company</h3>");
+  });
+
+  test("no-op when no content before h1", () => {
+    const md = "# Jane Doe\n\n## Work";
+    const html = renderResume(md);
+    expect(html).toContain("Jane Doe");
+  });
+
+  test("JD hr separator does not interfere with entry wrapping", () => {
+    const md = "## Job Description\nReqs.\n\n---\n\n# Name\n\n## Work\n\n### A\nRole\n\n---\n\n### B\nRole";
+    const html = renderResume(md);
+    expect(html).not.toContain("Job Description");
+    const entries = html.match(/<section class="entry">/g) || [];
+    expect(entries).toHaveLength(2);
+  });
+
   test("hr separators wrap entries in section.entry elements", () => {
     const md = "# Name\n\n## Work\n\n### Company A\nRole A\n\n---\n\n### Company B\nRole B";
     const html = renderResume(md);

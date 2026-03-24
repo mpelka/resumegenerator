@@ -59,6 +59,78 @@ Warsaw, Poland • jane@example.com
 * Built a configurable platform from scratch.
 `;
 
+const FIXTURE_WITH_JD = `---
+company: Acme Corp
+status: applied
+---
+
+## Job Description
+
+We are looking for a Senior Frontend Developer with React and TypeScript experience.
+
+### Requirements
+- 5+ years React
+- TypeScript expertise
+
+---
+
+# Jane Doe
+
+**Senior Software Engineer**
+
+Warsaw, Poland • jane@example.com • linkedin.com/in/jane
+
+Experienced engineer specializing in frontend architecture.
+
+## Work Experience
+
+### Acme Corp
+**Lead Developer** | Jan 2020 - Present
+
+* Built a configurable platform from scratch.
+
+*Technologies used: React, TypeScript, Next.js.*
+
+---
+
+### Startup Inc
+**Frontend Developer** | Mar 2016 - Dec 2019
+
+* Developed multiple client-facing applications.
+
+## Education
+
+### University of Testing
+**BSc Computer Science** | 2012 - 2016
+`;
+
+describe("combined JD + resume format", () => {
+  const { markdown } = parseFrontmatter(FIXTURE_WITH_JD);
+  const bodyHtml = renderResume(markdown);
+
+  test("frontmatter is stripped", () => {
+    expect(bodyHtml).not.toContain("company: Acme Corp");
+    expect(bodyHtml).not.toContain("status: applied");
+  });
+
+  test("JD content is stripped (before h1)", () => {
+    expect(bodyHtml).not.toContain("Job Description");
+    expect(bodyHtml).not.toContain("We are looking for");
+    expect(bodyHtml).not.toContain("TypeScript expertise");
+  });
+
+  test("resume content renders normally", () => {
+    expect(bodyHtml).toContain("Jane Doe");
+    expect(bodyHtml).toContain("<h3>Acme Corp</h3>");
+    expect(bodyHtml).toContain("<h3>Startup Inc</h3>");
+  });
+
+  test("entry separators within resume still work", () => {
+    const entries = bodyHtml.match(/<section class="entry">/g) || [];
+    expect(entries).toHaveLength(2);
+  });
+});
+
 describe("frontmatter stripping", () => {
   test("frontmatter is stripped and not present in rendered HTML", () => {
     const { markdown } = parseFrontmatter(FIXTURE_WITH_FRONTMATTER);

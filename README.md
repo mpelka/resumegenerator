@@ -67,6 +67,23 @@ Summary paragraph with optional **bold** keywords.
 
 YAML frontmatter is supported and stripped before rendering.
 
+Any content before the first `# Name` heading is ignored during rendering. This lets you embed job descriptions, notes, or other reference material above the resume — useful when keeping the job posting and tailored resume in a single file:
+
+```markdown
+---
+company: Acme Corp
+status: applied
+---
+
+## Job Description
+Looking for a Senior Frontend Developer...
+
+---
+
+# Full Name
+...resume content...
+```
+
 Use `---` (horizontal rule) between work experience entries to group each role into a block. This enables `break-inside: avoid` in the PDF — Chromium will keep each entry on the same page when possible, preventing orphaned company headings at page breaks.
 
 ## Templates

@@ -9,6 +9,9 @@ interface RenderOptions {
 export function renderResume(markdown: string, { initials, features = {} }: RenderOptions = {}): string {
   let html = Bun.markdown.html(markdown);
 
+  // Strip everything before the first <h1> (e.g. embedded job descriptions).
+  html = html.replace(/^[\s\S]*?(?=<h1>)/, "");
+
   // Transform h1 into header, optionally with monogram
   let inHeader = true;
   html = html.replace(/<h1>(.*?)<\/h1>/s, (_, content: string) => {
