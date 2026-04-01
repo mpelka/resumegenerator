@@ -41,7 +41,7 @@ When `pdftotext` is available, the CLI automatically analyzes page breaks after 
 PDF saved to: resume.pdf (2 pages)
 ✅ Page 1 break
    Last before break:  "Technologies used: React, TypeScript, Next.js."
-   First after break:  "SPA WORLDWIDE LTD"
+   First after break:  "PREVIOUS COMPANY"
 ```
 
 If a page has excessive empty space (>15 trailing blank lines), it warns about a possible bad break and suggests adjusting `--spacing`.
