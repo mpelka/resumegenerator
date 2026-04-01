@@ -99,7 +99,10 @@ async function generatePdf(htmlContent: string, outputDir: string, pdfPath: stri
 }
 
 async function printPageBreakAnalysis(pdfPath: string): Promise<void> {
-  const hasPdftotext = await $`which pdftotext`.quiet().nothrow().then((r) => r.exitCode === 0);
+  const hasPdftotext = await $`which pdftotext`
+    .quiet()
+    .nothrow()
+    .then((r) => r.exitCode === 0);
 
   if (hasPdftotext) {
     const text = await $`pdftotext -layout ${pdfPath} -`.quiet().text();
