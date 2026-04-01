@@ -161,4 +161,8 @@ The generated PDFs are optimized for Applicant Tracking Systems and AI-based res
 
 ## Font strategy
 
-The CLI downloads full TTF files from Google Fonts rather than using CDN `<link>` tags. Google Fonts CDN serves WOFF2 files split into `unicode-range` subsets, and when Playwright embeds these into a PDF the character-to-glyph mapping fragments — text looks correct but copy-paste produces garbled output, breaking ATS parsers. Fetching with a basic Linux User-Agent returns un-subsetted TTF URLs that produce clean character maps. A temp HTML file is written so the page loads with a `file://` origin, which is required for Chromium to access the locally cached font files.
+The CLI downloads full TTF files from Google Fonts rather than using CDN `<link>` tags. Google Fonts CDN serves WOFF2 files split into `unicode-range` subsets, and when Playwright embeds these into a PDF the character-to-glyph mapping fragments — text looks correct but copy-paste produces garbled output, breaking ATS parsers. Fetching with a basic Linux User-Agent returns un-subsetted TTF URLs that produce clean character maps.
+
+TTF files are cached in `~/.cache/resumegenerator/fonts/` (respects `$XDG_CACHE_HOME`). The `@font-face` CSS is generated at runtime from the cached TTFs — never cached itself — because it contains absolute `file://` URLs that would break if the cache or repo moved. A temp HTML file is written so the page loads with a `file://` origin, which is required for Chromium to access the locally cached font files.
+
+**Important:** If fonts are not properly loaded (e.g., stale cache, missing TTFs), Chromium silently falls back to system fonts and embeds them as Type 3 glyph outlines instead of CIDFontType2 TrueType subsets. This doubles the PDF size (~67KB → ~147KB) and may degrade ATS parsing. If you see unexpectedly large PDFs, delete the font cache (`rm -rf ~/.cache/resumegenerator/fonts/`) and regenerate.

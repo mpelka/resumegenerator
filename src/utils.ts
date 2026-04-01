@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -168,39 +168,47 @@ export async function ensureFont(fontFamily: string, fontsDir: string): Promise<
 
   mkdirSync(fontsDir, { recursive: true });
 
-  const cacheFile = resolve(fontsDir, `${fontFamily}.css`);
-  if (existsSync(cacheFile)) {
-    return readFileSync(cacheFile, "utf-8");
+  // Check if TTFs are already cached (any file matching this family)
+  const firstFile = resolve(fontsDir, `${fontFamily}-400-normal.ttf`);
+  if (!existsSync(firstFile)) {
+    console.log(`Downloading fonts for ${fontFamily} (one-time)...`);
+
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)" },
+    });
+    const cssText = await res.text();
+    const faces = parseFontFaces(cssText, fontFamily);
+
+    for (const face of faces) {
+      const filePath = resolve(fontsDir, face.filename);
+      if (!existsSync(filePath)) {
+        const fontRes = await fetch(face.fileUrl);
+        writeFileSync(filePath, Buffer.from(await fontRes.arrayBuffer()));
+      }
+    }
   }
 
-  console.log(`Downloading fonts for ${fontFamily} (one-time)...`);
+  // Always generate @font-face CSS at runtime from TTFs on disk (never cache
+  // the CSS — it contains absolute file:// URLs that break if the cache moves)
+  const faces = readdirSync(fontsDir)
+    .filter((f) => f.startsWith(`${fontFamily}-`) && f.endsWith(".ttf"))
+    .map((f) => {
+      const match = f.match(/^.+-(\d+)-(normal|italic)\.ttf$/);
+      if (!match) return null;
+      return { filename: f, weight: match[1], style: match[2] };
+    })
+    .filter(Boolean) as { filename: string; weight: string; style: string }[];
 
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)" },
-  });
-  const cssText = await res.text();
-  const faces = parseFontFaces(cssText, fontFamily);
-
-  const cssRules: string[] = [];
-  for (const face of faces) {
-    const filePath = resolve(fontsDir, face.filename);
-
-    if (!existsSync(filePath)) {
-      const fontRes = await fetch(face.fileUrl);
-      writeFileSync(filePath, Buffer.from(await fontRes.arrayBuffer()));
-    }
-
-    cssRules.push(`@font-face {
+  return faces
+    .map(
+      (face) => `@font-face {
       font-family: '${fontFamily}';
-      src: url('${pathToFileURL(filePath).href}') format('truetype');
+      src: url('${pathToFileURL(resolve(fontsDir, face.filename)).href}') format('truetype');
       font-weight: ${face.weight};
       font-style: ${face.style};
-    }`);
-  }
-
-  const result = cssRules.join("\n");
-  writeFileSync(cacheFile, result);
-  return result;
+    }`,
+    )
+    .join("\n");
 }
 
 export async function ensureFonts(families: string[], fontsDir: string): Promise<string | null> {

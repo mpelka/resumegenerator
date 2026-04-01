@@ -23,7 +23,11 @@ if (typeof Bun === "undefined") {
 }
 
 const ROOT = resolve(import.meta.dirname, "..");
-const FONTS_DIR = resolve(ROOT, ".fonts");
+const FONTS_DIR = resolve(
+  process.env.XDG_CACHE_HOME || resolve(require("node:os").homedir(), ".cache"),
+  "resumegenerator",
+  "fonts",
+);
 
 interface TemplateConfig {
   fonts: { primary: string; secondary?: string };
