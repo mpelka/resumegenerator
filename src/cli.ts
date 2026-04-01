@@ -2,6 +2,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { $ } from "bun";
 import { program } from "commander";
 import { chromium } from "playwright";
 import { renderResume } from "./render.ts";
@@ -196,4 +197,48 @@ await page.pdf({
 
 await browser.close();
 unlinkSync(tmpHtml);
-console.log(`PDF saved to: ${pdfPath}`);
+
+// Analyze page breaks from the actual PDF using pdftotext (optional)
+const hasPdftotext = await $`which pdftotext`.quiet().nothrow().then((r) => r.exitCode === 0);
+
+if (hasPdftotext) {
+  const text = await $`pdftotext -layout ${pdfPath} -`.quiet().text();
+  const pages = text.split("\f").filter((p) => p.trim());
+  const pgLabel = pages.length === 1 ? "1 page" : `${pages.length} pages`;
+  console.log(`PDF saved to: ${pdfPath} (${pgLabel})`);
+
+  const truncate = (s: string) => (s.length > 80 ? `${s.slice(0, 77)}...` : s);
+
+  for (let i = 0; i < pages.length - 1; i++) {
+    const lines = pages[i].split("\n");
+    const nextLines = pages[i + 1].split("\n");
+
+    let lastLine = "";
+    let trailingBlanks = 0;
+    for (let j = lines.length - 1; j >= 0; j--) {
+      if (!lines[j].trim()) {
+        trailingBlanks++;
+      } else {
+        lastLine = lines[j].trim();
+        break;
+      }
+    }
+
+    let firstLine = "";
+    for (const line of nextLines) {
+      if (line.trim()) {
+        firstLine = line.trim();
+        break;
+      }
+    }
+
+    const status = trailingBlanks > 15 ? "⚠️ " : "✅";
+    const warn = trailingBlanks > 15 ? " — possible bad break (try adjusting --spacing)" : "";
+    console.log(`${status} Page ${i + 1} break${warn}`);
+    if (lastLine) console.log(`   Last before break:  "${truncate(lastLine)}"`);
+    if (firstLine) console.log(`   First after break:  "${truncate(firstLine)}"`);
+  }
+} else {
+  console.log(`PDF saved to: ${pdfPath}`);
+  console.log("Tip: install pdftotext for page break analysis (brew install poppler)");
+}
