@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { $ } from "bun";
@@ -13,8 +13,7 @@ import {
   buildSpacingCSS,
   buildVarsCSS,
   deriveInitials,
-  GOOGLE_FONTS_URL,
-  parseFontFaces,
+  ensureFonts,
   parseFrontmatter,
 } from "./utils.ts";
 
@@ -26,57 +25,104 @@ if (typeof Bun === "undefined") {
 const ROOT = resolve(import.meta.dirname, "..");
 const FONTS_DIR = resolve(ROOT, ".fonts");
 
-async function ensureFont(fontFamily: string): Promise<string | null> {
-  const url = GOOGLE_FONTS_URL[fontFamily];
-  if (!url) return null;
+interface TemplateConfig {
+  fonts: { primary: string; secondary?: string };
+  colors: Record<string, string>;
+  features: Record<string, boolean>;
+}
 
-  mkdirSync(FONTS_DIR, { recursive: true });
+function loadTemplate(templateName: string): { config: TemplateConfig; css: string; baseCSS: string } {
+  const templateDir = resolve(ROOT, "templates", templateName);
 
-  // Return cached CSS if available
-  const cacheFile = resolve(FONTS_DIR, `${fontFamily}.css`);
-  if (existsSync(cacheFile)) {
-    return readFileSync(cacheFile, "utf-8");
+  if (!existsSync(templateDir)) {
+    const available = readdirSync(resolve(ROOT, "templates"), { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name);
+    console.error(`Template "${templateName}" not found. Available templates: ${available.join(", ")}`);
+    process.exit(1);
   }
 
-  console.log(`Downloading fonts for ${fontFamily} (one-time)...`);
+  const config = require(resolve(templateDir, "template.js")).default;
+  const css = readFileSync(resolve(templateDir, "style.css"), "utf-8");
+  const baseCSS = readFileSync(resolve(ROOT, "src", "base.css"), "utf-8");
 
-  // Fetch with basic UA to get un-subsetted TTF URLs (no unicode-range splitting)
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)" },
+  return { config, css, baseCSS };
+}
+
+function loadMarkdown(filename: string): { markdown: string; name: string; outputDir: string } {
+  const mdPath = resolve(process.cwd(), filename);
+
+  let raw: string;
+  try {
+    raw = readFileSync(mdPath, "utf-8");
+  } catch {
+    console.error(`File not found: ${mdPath}`);
+    process.exit(1);
+  }
+
+  const { markdown } = parseFrontmatter(raw);
+  const nameMatch = markdown.match(/^#\s+(.+)$/m);
+  if (!nameMatch) {
+    console.error("Error: markdown must contain an h1 heading (# Name)");
+    process.exit(1);
+  }
+
+  return { markdown, name: nameMatch[1], outputDir: dirname(mdPath) };
+}
+
+async function generatePdf(htmlContent: string, outputDir: string, pdfPath: string): Promise<void> {
+  const tmpHtml = resolve(outputDir, ".tmp-resume.html");
+  writeFileSync(tmpHtml, htmlContent);
+
+  let browser: Awaited<ReturnType<typeof chromium.launch>>;
+  try {
+    browser = await chromium.launch();
+  } catch {
+    console.error("Chromium not found. Run: npx playwright install chromium");
+    unlinkSync(tmpHtml);
+    process.exit(1);
+  }
+
+  const page = await browser.newPage();
+  await page.goto(pathToFileURL(tmpHtml).href, { waitUntil: "networkidle" });
+  await page.evaluateHandle("document.fonts.ready");
+
+  await page.pdf({
+    path: pdfPath,
+    format: "A4",
+    printBackground: true,
+    tagged: true,
   });
-  const cssText = await res.text();
-  const faces = parseFontFaces(cssText, fontFamily);
 
-  const cssRules: string[] = [];
-  for (const face of faces) {
-    const filePath = resolve(FONTS_DIR, face.filename);
+  await browser.close();
+  unlinkSync(tmpHtml);
+}
 
-    if (!existsSync(filePath)) {
-      const fontRes = await fetch(face.fileUrl);
-      writeFileSync(filePath, Buffer.from(await fontRes.arrayBuffer()));
+async function printPageBreakAnalysis(pdfPath: string): Promise<void> {
+  const hasPdftotext = await $`which pdftotext`.quiet().nothrow().then((r) => r.exitCode === 0);
+
+  if (hasPdftotext) {
+    const text = await $`pdftotext -layout ${pdfPath} -`.quiet().text();
+    const { totalPages, breaks } = analyzePageBreaks(text);
+    const pgLabel = totalPages === 1 ? "1 page" : `${totalPages} pages`;
+    console.log(`PDF saved to: ${pdfPath} (${pgLabel})`);
+
+    const truncate = (s: string) => (s.length > 80 ? `${s.slice(0, 77)}...` : s);
+
+    for (const b of breaks) {
+      const status = b.ok ? "✅" : "⚠️ ";
+      const warn = b.ok ? "" : " — possible bad break (try adjusting --spacing)";
+      console.log(`${status} Page ${b.page} break${warn}`);
+      if (b.lastLine) console.log(`   Last before break:  "${truncate(b.lastLine)}"`);
+      if (b.firstLine) console.log(`   First after break:  "${truncate(b.firstLine)}"`);
     }
-
-    cssRules.push(`@font-face {
-      font-family: '${fontFamily}';
-      src: url('${pathToFileURL(filePath).href}') format('truetype');
-      font-weight: ${face.weight};
-      font-style: ${face.style};
-    }`);
+  } else {
+    console.log(`PDF saved to: ${pdfPath}`);
+    console.log("Tip: install pdftotext for page break analysis (brew install poppler)");
   }
-
-  const result = cssRules.join("\n");
-  writeFileSync(cacheFile, result);
-  return result;
 }
 
-async function ensureFonts(families: string[]): Promise<string | null> {
-  const results: string[] = [];
-  for (const family of families) {
-    const css = await ensureFont(family);
-    if (css) results.push(css);
-  }
-  return results.join("\n") || null;
-}
+// --- CLI entry point ---
 
 program
   .description("Generate a styled PDF resume from markdown")
@@ -88,119 +134,29 @@ program
   .parse();
 
 const opts = program.opts();
-const filename = opts.filename;
-const outputFilename = opts.outputFilename;
 
-// Load template
-const templateName = opts.template;
-const templateDir = resolve(ROOT, "templates", templateName);
+const { config: templateConfig, css: templateCSS, baseCSS } = loadTemplate(opts.template);
+const { markdown, name, outputDir } = loadMarkdown(opts.filename);
 
-if (!existsSync(templateDir)) {
-  const available = readdirSync(resolve(ROOT, "templates"), { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name);
-  console.error(`Template "${templateName}" not found. Available templates: ${available.join(", ")}`);
-  process.exit(1);
-}
-
-const templateConfig = (await import(resolve(templateDir, "template.js"))).default;
-const templateCSS = readFileSync(resolve(templateDir, "style.css"), "utf-8");
-const baseCSS = readFileSync(resolve(ROOT, "src", "base.css"), "utf-8");
-
-// Read and validate markdown
-const mdPath = resolve(process.cwd(), filename);
-const outputDir = dirname(mdPath);
-
-let raw: string;
-try {
-  raw = readFileSync(mdPath, "utf-8");
-} catch {
-  console.error(`File not found: ${mdPath}`);
-  process.exit(1);
-}
-
-const { markdown } = parseFrontmatter(raw);
-
-const nameMatch = markdown.match(/^#\s+(.+)$/m);
-if (!nameMatch) {
-  console.error("Error: markdown must contain an h1 heading (# Name)");
-  process.exit(1);
-}
-
-// Derive initials from h1 or use CLI override
-const initials = opts.initials || deriveInitials(nameMatch[1]);
-
-// Render markdown to HTML
+const initials = opts.initials || deriveInitials(name);
 const bodyHtml = renderResume(markdown, { initials, features: templateConfig.features });
 
-// Download/cache fonts
 const fontFamilies = Object.values(templateConfig.fonts) as string[];
-const fontFaceCSS = await ensureFonts(fontFamilies);
+const fontFaceCSS = await ensureFonts(fontFamilies, FONTS_DIR);
 
-// Build spacing overrides if provided (multiplier, e.g. 0.8 = 80% of default gaps)
 const spacing = opts.spacing ? parseFloat(opts.spacing) : null;
 const spacingCSS = spacing != null ? buildSpacingCSS(spacing) : "";
-
-// Build CSS: base + template + spacing overrides
 const css = `${baseCSS}\n${templateCSS}\n${spacingCSS}`;
-
 const varsCSS = buildVarsCSS(templateConfig.fonts, templateConfig.colors);
 
-const pdfTitle = `${nameMatch[1]} - Resume`;
-const fullHtml = buildHtml({ bodyHtml, fontFaceCSS, css, fontOverride: varsCSS, pdfTitle });
+const fullHtml = buildHtml({ bodyHtml, fontFaceCSS, css, fontOverride: varsCSS, pdfTitle: `${name} - Resume` });
 
-// Generate PDF with Playwright
-const tmpHtml = resolve(outputDir, ".tmp-resume.html");
-writeFileSync(tmpHtml, fullHtml);
-
-const primaryFont = templateConfig.fonts.primary;
-console.log(
-  `Generating PDF (template: ${templateName}, font: ${primaryFont}, source: ${fontFaceCSS ? "Google Fonts (cached)" : "system fallback"})...`,
-);
-let browser: Awaited<ReturnType<typeof chromium.launch>>;
-try {
-  browser = await chromium.launch();
-} catch {
-  console.error("Chromium not found. Run: npx playwright install chromium");
-  unlinkSync(tmpHtml);
-  process.exit(1);
-}
-const page = await browser.newPage();
-await page.goto(pathToFileURL(tmpHtml).href, { waitUntil: "networkidle" });
-await page.evaluateHandle("document.fonts.ready");
-
-const pdfName = buildPdfName(filename, outputFilename);
+const pdfName = buildPdfName(opts.filename, opts.outputFilename);
 const pdfPath = resolve(outputDir, pdfName);
 
-await page.pdf({
-  path: pdfPath,
-  format: "A4",
-  printBackground: true,
-  tagged: true,
-});
+console.log(
+  `Generating PDF (template: ${opts.template}, font: ${templateConfig.fonts.primary}, source: ${fontFaceCSS ? "Google Fonts (cached)" : "system fallback"})...`,
+);
 
-await browser.close();
-unlinkSync(tmpHtml);
-
-// Analyze page breaks from the actual PDF using pdftotext (optional)
-const hasPdftotext = await $`which pdftotext`.quiet().nothrow().then((r) => r.exitCode === 0);
-
-if (hasPdftotext) {
-  const text = await $`pdftotext -layout ${pdfPath} -`.quiet().text();
-  const { totalPages, breaks } = analyzePageBreaks(text);
-  const pgLabel = totalPages === 1 ? "1 page" : `${totalPages} pages`;
-  console.log(`PDF saved to: ${pdfPath} (${pgLabel})`);
-
-  const truncate = (s: string) => (s.length > 80 ? `${s.slice(0, 77)}...` : s);
-
-  for (const b of breaks) {
-    const status = b.ok ? "✅" : "⚠️ ";
-    const warn = b.ok ? "" : " — possible bad break (try adjusting --spacing)";
-    console.log(`${status} Page ${b.page} break${warn}`);
-    if (b.lastLine) console.log(`   Last before break:  "${truncate(b.lastLine)}"`);
-    if (b.firstLine) console.log(`   First after break:  "${truncate(b.firstLine)}"`);
-  }
-} else {
-  console.log(`PDF saved to: ${pdfPath}`);
-  console.log("Tip: install pdftotext for page break analysis (brew install poppler)");
-}
+await generatePdf(fullHtml, outputDir, pdfPath);
+await printPageBreakAnalysis(pdfPath);

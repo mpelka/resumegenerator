@@ -1,4 +1,6 @@
-import { basename } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 export function deriveInitials(name: string): string {
   return name
@@ -158,4 +160,54 @@ export function parseFontFaces(cssText: string, fontFamily: string): FontFace[] 
   }
 
   return faces;
+}
+
+export async function ensureFont(fontFamily: string, fontsDir: string): Promise<string | null> {
+  const url = GOOGLE_FONTS_URL[fontFamily];
+  if (!url) return null;
+
+  mkdirSync(fontsDir, { recursive: true });
+
+  const cacheFile = resolve(fontsDir, `${fontFamily}.css`);
+  if (existsSync(cacheFile)) {
+    return readFileSync(cacheFile, "utf-8");
+  }
+
+  console.log(`Downloading fonts for ${fontFamily} (one-time)...`);
+
+  const res = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)" },
+  });
+  const cssText = await res.text();
+  const faces = parseFontFaces(cssText, fontFamily);
+
+  const cssRules: string[] = [];
+  for (const face of faces) {
+    const filePath = resolve(fontsDir, face.filename);
+
+    if (!existsSync(filePath)) {
+      const fontRes = await fetch(face.fileUrl);
+      writeFileSync(filePath, Buffer.from(await fontRes.arrayBuffer()));
+    }
+
+    cssRules.push(`@font-face {
+      font-family: '${fontFamily}';
+      src: url('${pathToFileURL(filePath).href}') format('truetype');
+      font-weight: ${face.weight};
+      font-style: ${face.style};
+    }`);
+  }
+
+  const result = cssRules.join("\n");
+  writeFileSync(cacheFile, result);
+  return result;
+}
+
+export async function ensureFonts(families: string[], fontsDir: string): Promise<string | null> {
+  const results: string[] = [];
+  for (const family of families) {
+    const css = await ensureFont(family, fontsDir);
+    if (css) results.push(css);
+  }
+  return results.join("\n") || null;
 }
