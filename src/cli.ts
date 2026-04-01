@@ -7,8 +7,11 @@ import { program } from "commander";
 import { chromium } from "playwright";
 import { renderResume } from "./render.ts";
 import {
+  analyzePageBreaks,
   buildHtml,
   buildPdfName,
+  buildSpacingCSS,
+  buildVarsCSS,
   deriveInitials,
   GOOGLE_FONTS_URL,
   parseFontFaces,
@@ -135,32 +138,13 @@ const fontFamilies = Object.values(templateConfig.fonts) as string[];
 const fontFaceCSS = await ensureFonts(fontFamilies);
 
 // Build spacing overrides if provided (multiplier, e.g. 0.8 = 80% of default gaps)
-let spacingCSS = "";
 const spacing = opts.spacing ? parseFloat(opts.spacing) : null;
-if (spacing != null) {
-  const s = spacing;
-  spacingCSS = [
-    `header { margin-bottom: ${20 * s}px !important; }`,
-    `.section-divider { margin-top: ${28 * s}px !important; margin-bottom: ${20 * s}px !important; }`,
-    `h3 { margin-top: ${32 * s}px !important; }`,
-    `ul { margin-top: ${6 * s}px !important; }`,
-    `ul + p { margin-top: ${6 * s}px !important; }`,
-  ].join("\n");
-}
+const spacingCSS = spacing != null ? buildSpacingCSS(spacing) : "";
 
 // Build CSS: base + template + spacing overrides
 const css = `${baseCSS}\n${templateCSS}\n${spacingCSS}`;
 
-let varsCSS = ":root {";
-varsCSS += ` --font-primary: '${templateConfig.fonts.primary}', sans-serif;`;
-if (templateConfig.fonts.secondary) {
-  varsCSS += ` --font-secondary: '${templateConfig.fonts.secondary}', serif;`;
-}
-for (const [key, value] of Object.entries(templateConfig.colors) as [string, string][]) {
-  const prop = key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
-  varsCSS += ` --color-${prop}: ${value};`;
-}
-varsCSS += " }";
+const varsCSS = buildVarsCSS(templateConfig.fonts, templateConfig.colors);
 
 const pdfTitle = `${nameMatch[1]} - Resume`;
 const fullHtml = buildHtml({ bodyHtml, fontFaceCSS, css, fontOverride: varsCSS, pdfTitle });
@@ -203,40 +187,18 @@ const hasPdftotext = await $`which pdftotext`.quiet().nothrow().then((r) => r.ex
 
 if (hasPdftotext) {
   const text = await $`pdftotext -layout ${pdfPath} -`.quiet().text();
-  const pages = text.split("\f").filter((p) => p.trim());
-  const pgLabel = pages.length === 1 ? "1 page" : `${pages.length} pages`;
+  const { totalPages, breaks } = analyzePageBreaks(text);
+  const pgLabel = totalPages === 1 ? "1 page" : `${totalPages} pages`;
   console.log(`PDF saved to: ${pdfPath} (${pgLabel})`);
 
   const truncate = (s: string) => (s.length > 80 ? `${s.slice(0, 77)}...` : s);
 
-  for (let i = 0; i < pages.length - 1; i++) {
-    const lines = pages[i].split("\n");
-    const nextLines = pages[i + 1].split("\n");
-
-    let lastLine = "";
-    let trailingBlanks = 0;
-    for (let j = lines.length - 1; j >= 0; j--) {
-      if (!lines[j].trim()) {
-        trailingBlanks++;
-      } else {
-        lastLine = lines[j].trim();
-        break;
-      }
-    }
-
-    let firstLine = "";
-    for (const line of nextLines) {
-      if (line.trim()) {
-        firstLine = line.trim();
-        break;
-      }
-    }
-
-    const status = trailingBlanks > 15 ? "⚠️ " : "✅";
-    const warn = trailingBlanks > 15 ? " — possible bad break (try adjusting --spacing)" : "";
-    console.log(`${status} Page ${i + 1} break${warn}`);
-    if (lastLine) console.log(`   Last before break:  "${truncate(lastLine)}"`);
-    if (firstLine) console.log(`   First after break:  "${truncate(firstLine)}"`);
+  for (const b of breaks) {
+    const status = b.ok ? "✅" : "⚠️ ";
+    const warn = b.ok ? "" : " — possible bad break (try adjusting --spacing)";
+    console.log(`${status} Page ${b.page} break${warn}`);
+    if (b.lastLine) console.log(`   Last before break:  "${truncate(b.lastLine)}"`);
+    if (b.firstLine) console.log(`   First after break:  "${truncate(b.firstLine)}"`);
   }
 } else {
   console.log(`PDF saved to: ${pdfPath}`);

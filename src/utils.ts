@@ -65,6 +65,78 @@ export interface FontFace {
   filename: string;
 }
 
+export function buildSpacingCSS(spacing: number): string {
+  const s = spacing;
+  return [
+    `header { margin-bottom: ${20 * s}px !important; }`,
+    `.section-divider { margin-top: ${28 * s}px !important; margin-bottom: ${20 * s}px !important; }`,
+    `h3 { margin-top: ${32 * s}px !important; }`,
+    `ul { margin-top: ${6 * s}px !important; }`,
+    `ul + p { margin-top: ${6 * s}px !important; }`,
+  ].join("\n");
+}
+
+export function buildVarsCSS(fonts: { primary: string; secondary?: string }, colors: Record<string, string>): string {
+  let css = ":root {";
+  css += ` --font-primary: '${fonts.primary}', sans-serif;`;
+  if (fonts.secondary) {
+    css += ` --font-secondary: '${fonts.secondary}', serif;`;
+  }
+  for (const [key, value] of Object.entries(colors)) {
+    const prop = key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+    css += ` --color-${prop}: ${value};`;
+  }
+  css += " }";
+  return css;
+}
+
+export interface PageBreak {
+  page: number;
+  lastLine: string;
+  firstLine: string;
+  trailingBlanks: number;
+  ok: boolean;
+}
+
+export function analyzePageBreaks(pdfText: string): { totalPages: number; breaks: PageBreak[] } {
+  const pages = pdfText.split("\f").filter((p) => p.trim());
+  const breaks: PageBreak[] = [];
+
+  for (let i = 0; i < pages.length - 1; i++) {
+    const lines = pages[i].split("\n");
+    const nextLines = pages[i + 1].split("\n");
+
+    let lastLine = "";
+    let trailingBlanks = 0;
+    for (let j = lines.length - 1; j >= 0; j--) {
+      if (!lines[j].trim()) {
+        trailingBlanks++;
+      } else {
+        lastLine = lines[j].trim();
+        break;
+      }
+    }
+
+    let firstLine = "";
+    for (const line of nextLines) {
+      if (line.trim()) {
+        firstLine = line.trim();
+        break;
+      }
+    }
+
+    breaks.push({
+      page: i + 1,
+      lastLine,
+      firstLine,
+      trailingBlanks,
+      ok: trailingBlanks <= 15,
+    });
+  }
+
+  return { totalPages: pages.length, breaks };
+}
+
 export function parseFontFaces(cssText: string, fontFamily: string): FontFace[] {
   const faces: FontFace[] = [];
   const faceRegex = /@font-face\s*\{([^}]+)\}/g;
