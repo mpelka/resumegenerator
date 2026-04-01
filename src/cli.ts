@@ -131,32 +131,31 @@ program
   .option("--initials <letters>", "override auto-derived monogram initials")
   .option("--output-filename <name>", "override the output PDF filename")
   .option("--spacing <multiplier>", "scale vertical gaps (e.g. 0.8 = 80%)")
+  .action(async (opts) => {
+    const { config: templateConfig, css: templateCSS, baseCSS } = loadTemplate(opts.template);
+    const { markdown, name, outputDir } = loadMarkdown(opts.filename);
+
+    const initials = opts.initials || deriveInitials(name);
+    const bodyHtml = renderResume(markdown, { initials, features: templateConfig.features });
+
+    const fontFamilies = Object.values(templateConfig.fonts) as string[];
+    const fontFaceCSS = await ensureFonts(fontFamilies, FONTS_DIR);
+
+    const spacing = opts.spacing ? parseFloat(opts.spacing) : null;
+    const spacingCSS = spacing != null ? buildSpacingCSS(spacing) : "";
+    const css = `${baseCSS}\n${templateCSS}\n${spacingCSS}`;
+    const varsCSS = buildVarsCSS(templateConfig.fonts, templateConfig.colors);
+
+    const fullHtml = buildHtml({ bodyHtml, fontFaceCSS, css, fontOverride: varsCSS, pdfTitle: `${name} - Resume` });
+
+    const pdfName = buildPdfName(opts.filename, opts.outputFilename);
+    const pdfPath = resolve(outputDir, pdfName);
+
+    console.log(
+      `Generating PDF (template: ${opts.template}, font: ${templateConfig.fonts.primary}, source: ${fontFaceCSS ? "Google Fonts (cached)" : "system fallback"})...`,
+    );
+
+    await generatePdf(fullHtml, outputDir, pdfPath);
+    await printPageBreakAnalysis(pdfPath);
+  })
   .parse();
-
-const opts = program.opts();
-
-const { config: templateConfig, css: templateCSS, baseCSS } = loadTemplate(opts.template);
-const { markdown, name, outputDir } = loadMarkdown(opts.filename);
-
-const initials = opts.initials || deriveInitials(name);
-const bodyHtml = renderResume(markdown, { initials, features: templateConfig.features });
-
-const fontFamilies = Object.values(templateConfig.fonts) as string[];
-const fontFaceCSS = await ensureFonts(fontFamilies, FONTS_DIR);
-
-const spacing = opts.spacing ? parseFloat(opts.spacing) : null;
-const spacingCSS = spacing != null ? buildSpacingCSS(spacing) : "";
-const css = `${baseCSS}\n${templateCSS}\n${spacingCSS}`;
-const varsCSS = buildVarsCSS(templateConfig.fonts, templateConfig.colors);
-
-const fullHtml = buildHtml({ bodyHtml, fontFaceCSS, css, fontOverride: varsCSS, pdfTitle: `${name} - Resume` });
-
-const pdfName = buildPdfName(opts.filename, opts.outputFilename);
-const pdfPath = resolve(outputDir, pdfName);
-
-console.log(
-  `Generating PDF (template: ${opts.template}, font: ${templateConfig.fonts.primary}, source: ${fontFaceCSS ? "Google Fonts (cached)" : "system fallback"})...`,
-);
-
-await generatePdf(fullHtml, outputDir, pdfPath);
-await printPageBreakAnalysis(pdfPath);
