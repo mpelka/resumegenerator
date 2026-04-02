@@ -147,9 +147,13 @@ ul + p {
   margin-left: 0;
 }
 
-/* Entry grouping — keep each experience block together when possible */
-section.entry {
-  break-inside: avoid;
+/* Entry page-break rules — protect key pairs, allow splitting bullet lists */
+li:last-child {
+  break-after: avoid;
+}
+
+ul + p {
+  break-before: avoid;
 }
 
 /* Print styles */

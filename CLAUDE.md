@@ -102,7 +102,7 @@ Looking for a Senior Frontend Developer...
 ...resume content...
 ```
 
-Use `---` (horizontal rule) between work experience entries to group each role into a block. This enables `break-inside: avoid` in the PDF — Chromium will keep each entry on the same page when possible, preventing orphaned company headings at page breaks.
+Use `---` (horizontal rule) between work experience entries to group each role into a block. The `section.entry` wrapper removes the top margin on the first entry after a section divider. Page breaks are controlled by targeted CSS rules: `h3` and role lines use `break-after: avoid` to keep company+role together, `li:last-child` uses `break-after: avoid` and `ul + p` uses `break-before: avoid` to keep the tech stack line attached to its bullet list. Bullet lists themselves are allowed to split across pages when needed.
 
 ## Templates
 
