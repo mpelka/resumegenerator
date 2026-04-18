@@ -17,8 +17,13 @@ import {
   parseFrontmatter,
 } from "./utils.ts";
 
+function reportError(err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  process.stderr.write(`${message}\n`);
+}
+
 if (typeof Bun === "undefined") {
-  console.error("This tool requires Bun. Install it at https://bun.sh");
+  reportError("This tool requires Bun. Install it at https://bun.sh");
   process.exit(1);
 }
 
@@ -42,7 +47,7 @@ function loadTemplate(templateName: string): { config: TemplateConfig; css: stri
     const available = readdirSync(resolve(ROOT, "templates"), { withFileTypes: true })
       .filter((d) => d.isDirectory())
       .map((d) => d.name);
-    console.error(`Template "${templateName}" not found. Available templates: ${available.join(", ")}`);
+    reportError(`Template "${templateName}" not found. Available templates: ${available.join(", ")}`);
     process.exit(1);
   }
 
@@ -60,14 +65,14 @@ function loadMarkdown(filename: string): { markdown: string; name: string; outpu
   try {
     raw = readFileSync(mdPath, "utf-8");
   } catch {
-    console.error(`File not found: ${mdPath}`);
+    reportError(`File not found: ${mdPath}`);
     process.exit(1);
   }
 
   const { markdown } = parseFrontmatter(raw);
   const nameMatch = markdown.match(/^#\s+(.+)$/m);
   if (!nameMatch) {
-    console.error("Error: markdown must contain an h1 heading (# Name)");
+    reportError("Error: markdown must contain an h1 heading (# Name)");
     process.exit(1);
   }
 
@@ -82,7 +87,7 @@ async function generatePdf(htmlContent: string, outputDir: string, pdfPath: stri
   try {
     browser = await chromium.launch();
   } catch {
-    console.error("Chromium not found. Run: npx playwright install chromium");
+    reportError("Chromium not found. Run: npx playwright install chromium");
     unlinkSync(tmpHtml);
     process.exit(1);
   }
@@ -108,24 +113,26 @@ async function printPageBreakAnalysis(pdfPath: string): Promise<void> {
     .nothrow()
     .then((r) => r.exitCode === 0);
 
+  const log = (line: string) => process.stderr.write(`${line}\n`);
+
   if (hasPdftotext) {
     const text = await $`pdftotext -layout ${pdfPath} -`.quiet().text();
     const { totalPages, breaks } = analyzePageBreaks(text);
     const pgLabel = totalPages === 1 ? "1 page" : `${totalPages} pages`;
-    console.log(`PDF saved to: ${pdfPath} (${pgLabel})`);
+    log(`PDF saved to: ${pdfPath} (${pgLabel})`);
 
     const truncate = (s: string) => (s.length > 80 ? `${s.slice(0, 77)}...` : s);
 
     for (const b of breaks) {
       const status = b.ok ? "✅" : "⚠️ ";
       const warn = b.ok ? "" : " — possible bad break (try adjusting --spacing)";
-      console.log(`${status} Page ${b.page} break${warn}`);
-      if (b.lastLine) console.log(`   Last before break:  "${truncate(b.lastLine)}"`);
-      if (b.firstLine) console.log(`   First after break:  "${truncate(b.firstLine)}"`);
+      log(`${status} Page ${b.page} break${warn}`);
+      if (b.lastLine) log(`   Last before break:  "${truncate(b.lastLine)}"`);
+      if (b.firstLine) log(`   First after break:  "${truncate(b.firstLine)}"`);
     }
   } else {
-    console.log(`PDF saved to: ${pdfPath}`);
-    console.log("Tip: install pdftotext for page break analysis (brew install poppler)");
+    log(`PDF saved to: ${pdfPath}`);
+    log("Tip: install pdftotext for page break analysis (brew install poppler)");
   }
 }
 
@@ -164,5 +171,9 @@ program
 
     await generatePdf(fullHtml, outputDir, pdfPath);
     await printPageBreakAnalysis(pdfPath);
-  })
-  .parse();
+  });
+
+program.parseAsync().catch((err) => {
+  reportError(err);
+  process.exit(1);
+});
